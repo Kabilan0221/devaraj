@@ -132,7 +132,7 @@ export const Footer: React.FC<FooterProps> = ({ settings, onNavigateCategory, on
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-amber-400 font-bold">✓</span>
-                <span>Flat up to 70% Off MRP Discounts</span>
+                <span>Flat up to 70% Off Discounts</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-amber-400 font-bold">✓</span>

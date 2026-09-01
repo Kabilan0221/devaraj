@@ -133,13 +133,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [freeDeliveryAboveInput, setFreeDeliveryAboveInput] = useState<string>(
     String(settings?.free_delivery_above ?? 0)
   );
+  const STATE_MIN_ORDER_LIST = ['Tamil Nadu', 'Karnataka', 'Andhra Pradesh', 'Telangana'];
+  const [minOrderByStateInput, setMinOrderByStateInput] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    STATE_MIN_ORDER_LIST.forEach((st) => {
+      initial[st] = String(settings?.min_order_by_state?.[st] ?? '');
+    });
+    return initial;
+  });
 
   // Keep the store settings form in sync when settings prop updates
   useEffect(() => {
     if (settings) {
       setMinOrderValueInput(String(settings.min_order_value ?? 500));
       setFreeDeliveryAboveInput(String(settings.free_delivery_above ?? 0));
+      setMinOrderByStateInput((prev) => {
+        const next: Record<string, string> = { ...prev };
+        STATE_MIN_ORDER_LIST.forEach((st) => {
+          next[st] = String(settings.min_order_by_state?.[st] ?? prev[st] ?? '');
+        });
+        return next;
+      });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
 
   const handleSaveStoreSettings = async (e: React.FormEvent) => {
@@ -158,12 +174,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
+    const minOrderByState: Record<string, number> = {};
+    for (const st of STATE_MIN_ORDER_LIST) {
+      const raw = minOrderByStateInput[st];
+      if (raw === undefined || raw === '') continue;
+      const val = parseFloat(raw);
+      if (isNaN(val) || val < 0) {
+        setActionError(`Please enter a valid Minimum Order Amount for ${st} (0 or more).`);
+        setTimeout(() => setActionError(null), 3000);
+        return;
+      }
+      minOrderByState[st] = val;
+    }
+
     try {
       setLoading(true);
       const res = await apiRequest<any>('/api/settings', {
         method: 'PUT',
         body: JSON.stringify({
           min_order_value: minOrderValue,
+          min_order_by_state: minOrderByState,
           free_delivery_above: freeDeliveryAbove,
         }),
       });
@@ -3187,8 +3217,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   placeholder="500"
                 />
                 <p className="text-[11px] text-gray-400 mt-1">
-                  Customers whose cart total is below this amount will see a warning in the Cart and won't be able to proceed to checkout.
+                  Customers whose cart total is below this amount will see a warning in the Cart and won't be able to proceed to checkout. This is the fallback used for any state below that doesn't have its own amount set.
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Minimum Order Amount by State (மாநிலம் வாரியாக) — ₹
+                </label>
+                <p className="text-[11px] text-gray-400 mb-2">
+                  Set a different minimum order amount per delivery state, shown and enforced at checkout based on what the customer selects. Leave a field blank to fall back to the general amount above.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {STATE_MIN_ORDER_LIST.map((st) => (
+                    <div key={st}>
+                      <label className="block text-[11px] font-bold text-gray-500 mb-1">{st}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={minOrderByStateInput[st] ?? ''}
+                        onChange={(e) =>
+                          setMinOrderByStateInput((prev) => ({ ...prev, [st]: e.target.value }))
+                        }
+                        className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-gray-900"
+                        placeholder={String(settings?.min_order_value ?? 500)}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div>

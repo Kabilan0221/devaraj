@@ -136,7 +136,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const totalMrp = items.reduce((sum, item) => sum + item.product.mrp * item.quantity, 0);
   const grandTotal = items.reduce((sum, item) => sum + item.product.selling_price * item.quantity, 0);
   const totalSavings = totalMrp - grandTotal;
-  const minOrderValue = settings?.min_order_value || 500;
+  const minOrderValue =
+    settings?.min_order_by_state?.[state] ?? settings?.min_order_value ?? 500;
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();

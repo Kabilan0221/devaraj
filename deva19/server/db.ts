@@ -991,6 +991,12 @@ function getInitialSeedData(): DatabaseSchema {
     gst_number: '33AAACD9981E1Z5',
     invoice_prefix: 'DJ-INV-',
     min_order_value: 500,
+    min_order_by_state: {
+      'Tamil Nadu': 3000,
+      Karnataka: 5000,
+      'Andhra Pradesh': 5000,
+      Telangana: 5000,
+    },
     free_delivery_above: 3000,
     announcement: '💥 DJ DEVARAJ CRACKERS - நேரடி சிவகாசி தரமான பசுமை பட்டாசுகள்! 90% அதிரடி தள்ளுபடி விற்பனை! காஞ்சிபுரம்.',
     bank_name: 'State Bank of India - Kanchipuram Branch',

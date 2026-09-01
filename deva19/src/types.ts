@@ -267,6 +267,7 @@ export interface StoreSettings {
   gst_number: string;
   invoice_prefix: string;
   min_order_value: number;
+  min_order_by_state?: Record<string, number>;
   free_delivery_above: number;
   announcement: string;
   bank_name: string;

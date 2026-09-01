@@ -181,6 +181,28 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               )}
 
+              {/* State-wise Minimum Order Amount — editable from Admin Panel */}
+              {settings?.min_order_by_state && Object.keys(settings.min_order_by_state).length > 0 && (
+                <div className="bg-white border border-red-200 rounded-xl p-3 mb-3 shadow-xs">
+                  <div className="text-xs font-black text-red-700 text-center mb-2">
+                    Min. Order Amount / குறைந்தபட்ச ஆர்டர் தொகை
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {Object.entries(settings.min_order_by_state).map(([state, amount]) => (
+                      <div key={state} className="flex items-center justify-between py-1.5 text-xs">
+                        <span className="font-semibold text-gray-700">{state}</span>
+                        <span className="font-black text-gray-900">
+                          ₹{Number(amount).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-gray-400 text-center mt-2">
+                    State-wise amount is managed by the Owner in Admin Panel.
+                  </p>
+                </div>
+              )}
+
               {/* Savings Announcement */}
               {totalSavings > 0 && (
                 <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-2 rounded-xl mb-3 flex items-center justify-between">

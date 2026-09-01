@@ -62,6 +62,9 @@ export interface Customer {
   last_order_date?: string;
   created_at: string;
   updated_at: string;
+  lead_source?: 'ORDER' | 'PRICE_LIST_DOWNLOAD';
+  last_download_at?: string;
+  last_download_type?: string;
 }
 
 export interface OrderItem {

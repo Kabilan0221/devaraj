@@ -790,6 +790,27 @@ export const WorkerPOS: React.FC<WorkerPOSProps> = ({
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key !== 'Enter') return;
+                      e.preventDefault();
+                      const cleanMobile = customerMobile.replace(/\D/g, '');
+                      if (!customerName.trim() || cleanMobile.length !== 10) {
+                        showToast('Enter customer name and valid mobile number first.');
+                        return;
+                      }
+                      try {
+                        await apiRequest('/api/customers/save', {
+                          method: 'POST',
+                          body: JSON.stringify({ name: customerName.trim(), mobile: cleanMobile }),
+                        });
+                        showToast(`✓ ${customerName.trim()} saved. Ready for next customer.`);
+                        setRegisteredCustomerInfo({ name: customerName.trim(), total_orders: registeredCustomerInfo?.total_orders || 0 });
+                        e.currentTarget.blur();
+                        setTimeout(() => searchInputRef.current?.focus(), 50);
+                      } catch {
+                        showToast('Unable to save customer details.');
+                      }
+                    }}
                     placeholder="Auto-fills if number registered..."
                     className={`w-full pl-8 pr-3 py-2 text-xs border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold shadow-2xs text-gray-900 transition-colors ${
                       registeredCustomerInfo

@@ -3358,6 +3358,43 @@ apiRouter.get("/customers/lookup", (req, res) => {
   }
   return res.json({ found: false });
 });
+apiRouter.post("/customers/register-download", (req, res) => {
+  const db = db_default.getData();
+  const name = String(req.body?.name || "").trim();
+  const downloadType = String(req.body?.download_type || "catalog").toLowerCase() === "estimate" ? "PDF Estimate" : "Catalog";
+  const rawMobile = String(req.body?.mobile || "").trim();
+  const mobileDigits = rawMobile.replace(/\D/g, "");
+  if (!name) return res.status(400).json({ error: "Name is required" });
+  if (mobileDigits.length < 10) return res.status(400).json({ error: "Valid mobile number is required" });
+  const mobile = mobileDigits.slice(-10);
+  const now = new Date().toISOString();
+  let customer = db.customers.find((c) => (c.mobile || "").replace(/\D/g, "").slice(-10) === mobile);
+  if (!customer) {
+    const id = db.customers.length ? Math.max(...db.customers.map((c) => c.id)) + 1 : 1;
+    customer = {
+      id, name, mobile, email: "", address: "", area: "", city: "", pincode: "",
+      total_orders: 0, total_purchase: 0, created_at: now, updated_at: now,
+      lead_source: "PRICE_LIST_DOWNLOAD", last_download_at: now, last_download_type: downloadType
+    };
+    db.customers.push(customer);
+  } else {
+    if (!customer.name || customer.name === "Online Customer" || customer.name === "Counter Walk-in Customer") customer.name = name;
+    customer.updated_at = now;
+    customer.lead_source = "PRICE_LIST_DOWNLOAD";
+    customer.last_download_at = now;
+    customer.last_download_type = downloadType;
+  }
+  db_default.saveSync();
+  return res.json({ success: true, customer });
+});
+
+apiRouter.get("/customers/download-leads", authMiddleware, (req, res) => {
+  const db = db_default.getData();
+  const leads = db.customers
+    .filter((c) => c.lead_source === "PRICE_LIST_DOWNLOAD" || c.last_download_at)
+    .sort((a, b) => new Date(b.last_download_at || b.updated_at || b.created_at).getTime() - new Date(a.last_download_at || a.updated_at || a.created_at).getTime());
+  res.json(leads);
+});
 apiRouter.get("/customers", authMiddleware, (req, res) => {
   const db = db_default.getData();
   res.json(db.customers);

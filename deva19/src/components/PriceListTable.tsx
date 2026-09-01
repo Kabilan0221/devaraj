@@ -15,16 +15,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { downloadOrderEstimatePDF, downloadPriceListPDF } from '../utils/pdfGenerator';
-
-type SortOption = 'featured' | 'price-asc' | 'price-desc' | 'discount-desc' | 'name-asc';
-
-const SORT_LABELS: Record<SortOption, string> = {
-  featured: 'Featured (இயல்பு வரிசை)',
-  'price-asc': 'Price: Low to High',
-  'price-desc': 'Price: High to Low',
-  'discount-desc': 'Discount: High to Low',
-  'name-asc': 'Name: A to Z',
-};
+import { DownloadDetailsModal } from './DownloadDetailsModal';
+import { apiRequest } from '../utils/api';
 
 interface PriceListTableProps {
   products: Product[];
@@ -47,12 +39,11 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
   const [isInView, setIsInView] = useState(false);
   const [selectedCatId, setSelectedCatId] = useState<number | 'all'>('all');
   const [filterSearch, setFilterSearch] = useState('');
-  const [sortOption, setSortOption] = useState<SortOption>('featured');
-  const [inStockOnly, setInStockOnly] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [downloadSuccessToast, setDownloadSuccessToast] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [downloadType, setDownloadType] = useState<'estimate' | 'catalog' | null>(null);
 
   const showNotice = (msg: string) => {
     setActionNotice(msg);
@@ -93,30 +84,11 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
       p.code.toLowerCase().includes(filterSearch.toLowerCase()) ||
       (p.content && p.content.toLowerCase().includes(filterSearch.toLowerCase())) ||
       (p.category_name && p.category_name.toLowerCase().includes(filterSearch.toLowerCase()));
-    const matchesStock = !inStockOnly || p.stock_quantity > 0;
-    return matchesCat && matchesSearch && matchesStock;
+    return matchesCat && matchesSearch;
   });
 
-  // Sort products (applied per-category below, but computed once here as a comparator)
-  const sortProducts = (list: Product[]): Product[] => {
-    if (sortOption === 'featured') return list;
-    const sorted = [...list];
-    switch (sortOption) {
-      case 'price-asc':
-        sorted.sort((a, b) => a.selling_price - b.selling_price);
-        break;
-      case 'price-desc':
-        sorted.sort((a, b) => b.selling_price - a.selling_price);
-        break;
-      case 'discount-desc':
-        sorted.sort((a, b) => b.discount_percentage - a.discount_percentage);
-        break;
-      case 'name-asc':
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-    }
-    return sorted;
-  };
+  // Keep the original product order; the Filter menu intentionally contains Category only.
+  const sortProducts = (list: Product[]): Product[] => list;
 
   // Calculate live order totals
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -125,31 +97,34 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
   const totalSavings = totalMrp - totalNet;
   const savingsPct = totalMrp > 0 ? Math.round((totalSavings / totalMrp) * 100) : 0;
 
-  // Handle Download Order Estimate
-  const handleDownloadEstimate = () => {
-    if (cart.length === 0) {
+  const requestDownload = (type: 'estimate' | 'catalog') => {
+    if (type === 'estimate' && cart.length === 0) {
       showNotice('Please select at least 1 cracker quantity before downloading your estimate (பட்டாசு எண்ணிக்கையை உள்ளிடவும்).');
       return;
     }
+    setDownloadType(type);
+  };
+
+  const completeDownload = async (name: string, mobile: string) => {
+    await apiRequest('/api/customers/register-download', {
+      method: 'POST',
+      body: JSON.stringify({ name, mobile, download_type: downloadType }),
+    });
+
     try {
-      downloadOrderEstimatePDF(cart, settings);
-      setDownloadSuccessToast('Order Estimate PDF downloaded successfully!');
+      if (downloadType === 'estimate') {
+        downloadOrderEstimatePDF(cart, settings);
+        setDownloadSuccessToast('Order Estimate PDF downloaded successfully!');
+      } else {
+        downloadPriceListPDF(products, categories, settings);
+        setDownloadSuccessToast('Full Wholesale Price List PDF downloaded successfully!');
+      }
       setTimeout(() => setDownloadSuccessToast(null), 4000);
+      setDownloadType(null);
     } catch (err) {
       console.error(err);
       showNotice('Failed to generate PDF. Please try again.');
-    }
-  };
-
-  // Handle Download Full Price List
-  const handleDownloadPriceList = () => {
-    try {
-      downloadPriceListPDF(products, categories, settings);
-      setDownloadSuccessToast('Full Wholesale Price List PDF downloaded successfully!');
-      setTimeout(() => setDownloadSuccessToast(null), 4000);
-    } catch (err) {
-      console.error(err);
-      showNotice('Failed to generate Price List PDF.');
+      throw err;
     }
   };
 
@@ -159,7 +134,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
       showNotice('Please add items to your price list before placing a WhatsApp order.');
       return;
     }
-    const phone = settings?.owner_whatsapp || '918870929100';
+    const phone = settings?.owner_whatsapp || '919894777176';
     let text = `💥 *DEVARAJ TRADERS - FESTIVAL CRACKER ORDER* 💥\n`;
     text += `📍 *Kanchipuram Direct Outlet*\n`;
     text += `------------------------------------\n`;
@@ -221,7 +196,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
       )}
 
       {/* TOP STICKY ESTIMATE & DOWNLOAD BAR */}
-      <div className="sticky top-14 sm:top-16 z-30 mb-4 sm:mb-6 bg-gradient-to-r from-red-700 via-red-800 to-amber-700 rounded-2xl shadow-xl p-3 sm:p-4 text-white border-2 border-amber-400/40 backdrop-blur-md">
+      <div className="hidden sm:block sticky top-14 sm:top-16 z-30 mb-4 sm:mb-6 bg-gradient-to-r from-red-700 via-red-800 to-amber-700 rounded-2xl shadow-xl p-3 sm:p-4 text-white border-2 border-amber-400/40 backdrop-blur-md">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
           {/* Live calculation stats */}
           <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2.5 sm:gap-4">
@@ -250,7 +225,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
             {/* 1. Download PDF */}
             <button
               type="button"
-              onClick={handleDownloadEstimate}
+              onClick={() => requestDownload('estimate')}
               className={`px-1.5 sm:px-3.5 py-2 rounded-xl text-[10px] sm:text-xs font-black flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 shadow-md transition-all cursor-pointer min-w-0 ${
                 cart.length > 0
                   ? 'bg-amber-400 hover:bg-amber-300 text-red-950 active:scale-95 ring-2 ring-amber-300'
@@ -265,7 +240,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
             {/* 2. Full Catalog */}
             <button
               type="button"
-              onClick={handleDownloadPriceList}
+              onClick={() => requestDownload('catalog')}
               className="bg-white/20 hover:bg-white/30 text-white px-1.5 sm:px-3.5 py-2 rounded-xl text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 border border-white/30 transition-colors cursor-pointer min-w-0"
               title="Download Full Catalog PDF"
             >
@@ -298,9 +273,8 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
         </div>
 
         {cart.length === 0 && (
-          <div className="mt-2 pt-2 border-t border-white/15 text-[10px] sm:text-[11px] text-amber-200 flex items-center justify-between">
+          <div className="mt-2 pt-2 border-t border-white/15 text-[10px] sm:text-[11px] text-amber-200">
             <span>💡 கீழே உள்ள பட்டாசு பட்டியலில் எண்ணிக்கையை (Qty) உள்ளிடவும். மொத்த விலை உடனடியாக மாறும்!</span>
-            <span className="hidden sm:inline font-bold">மினிமம் ஆர்டர் ₹{settings?.min_order_value || 500}</span>
           </div>
         )}
       </div>
@@ -328,13 +302,13 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
             )}
           </div>
 
-          {/* Filter Button (Sort + In Stock Only) */}
+          {/* Filter Button — Category only */}
           <div className="relative shrink-0">
             <button
               type="button"
               onClick={() => setShowSortMenu((v) => !v)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-colors cursor-pointer ${
-                sortOption !== 'featured' || inStockOnly
+                selectedCatId !== 'all'
                   ? 'bg-red-700 text-white border-red-700'
                   : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
               }`}
@@ -346,53 +320,33 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
 
             {showSortMenu && (
               <>
-                {/* Backdrop to close on outside click */}
                 <div className="fixed inset-0 z-30" onClick={() => setShowSortMenu(false)} />
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl border border-gray-200 shadow-xl z-40 p-3 space-y-3">
-                  <div>
-                    <div className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
-                      Sort By (வரிசைப்படுத்து)
-                    </div>
-                    <div className="space-y-1">
-                      {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => {
-                            setSortOption(opt);
-                          }}
-                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                            sortOption === opt
-                              ? 'bg-red-700 text-white'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          {SORT_LABELS[opt]}
-                        </button>
-                      ))}
-                    </div>
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl border border-gray-200 shadow-xl z-40 p-3">
+                  <div className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
+                    Category (வகை)
                   </div>
-
-                  <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer border-t border-gray-100 pt-2.5">
-                    <input
-                      type="checkbox"
-                      checked={inStockOnly}
-                      onChange={(e) => setInStockOnly(e.target.checked)}
-                      className="w-3.5 h-3.5 accent-red-600"
-                    />
-                    <span className="text-xs font-semibold text-gray-700">In Stock Only (கையிருப்பு உள்ளவை)</span>
-                  </label>
-
-                  {(sortOption !== 'featured' || inStockOnly) && (
+                  <select
+                    value={selectedCatId}
+                    onChange={(e) => {
+                      setSelectedCatId(e.target.value === 'all' ? 'all' : Number(e.target.value));
+                      setShowSortMenu(false);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-600"
+                  >
+                    <option value="all">All Categories ({products.length})</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name} ({products.filter((p) => p.category_id === cat.id).length})
+                      </option>
+                    ))}
+                  </select>
+                  {selectedCatId !== 'all' && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setSortOption('featured');
-                        setInStockOnly(false);
-                      }}
-                      className="w-full text-center text-[11px] font-bold text-red-700 hover:underline pt-1"
+                      onClick={() => { setSelectedCatId('all'); setShowSortMenu(false); }}
+                      className="w-full text-center text-[11px] font-bold text-red-700 hover:underline pt-3"
                     >
-                      Reset Filters
+                      Show All Categories
                     </button>
                   )}
                 </div>
@@ -400,46 +354,22 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
             )}
           </div>
         </div>
+      </div>
 
-        {/* Category Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-          <button
-            type="button"
-            onClick={() => setSelectedCatId('all')}
-            className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-              selectedCatId === 'all'
-                ? 'bg-red-700 text-white shadow-xs'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            All Categories ({products.length})
-          </button>
-          {categories.map((cat) => {
-            const count = products.filter((p) => p.category_id === cat.id).length;
-            const isSelected = selectedCatId === cat.id;
-            return (
-              <button
-                type="button"
-                key={cat.id}
-                onClick={() => setSelectedCatId(cat.id)}
-                className={`px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                  isSelected
-                    ? 'bg-red-700 text-white font-bold shadow-xs'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <span>{cat.name}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isSelected ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-600'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      {/* MOBILE ACTIONS - the large sticky summary bar is intentionally removed from phone view. */}
+      <div className="sm:hidden grid grid-cols-4 gap-1.5 mb-4 bg-white rounded-2xl border border-red-100 p-2 shadow-xs">
+        <button type="button" onClick={() => requestDownload('estimate')} disabled={cart.length === 0} className="bg-amber-400 disabled:opacity-40 text-red-950 rounded-xl py-2 px-1 text-[9px] font-black flex flex-col items-center gap-1 cursor-pointer">
+          <Download className="w-4 h-4" /> PDF
+        </button>
+        <button type="button" onClick={() => requestDownload('catalog')} className="bg-slate-800 text-white rounded-xl py-2 px-1 text-[9px] font-black flex flex-col items-center gap-1 cursor-pointer">
+          <FileText className="w-4 h-4" /> Catalog
+        </button>
+        <button type="button" onClick={handleWhatsAppOrder} disabled={cart.length === 0} className="bg-emerald-600 disabled:opacity-40 text-white rounded-xl py-2 px-1 text-[9px] font-black flex flex-col items-center gap-1 cursor-pointer">
+          <MessageCircle className="w-4 h-4" /> WhatsApp
+        </button>
+        <button type="button" onClick={onOpenCart} disabled={cart.length === 0} className="bg-red-600 disabled:opacity-40 text-white rounded-xl py-2 px-1 text-[9px] font-black flex flex-col items-center gap-1 cursor-pointer">
+          <ShoppingCart className="w-4 h-4" /> Checkout
+        </button>
       </div>
 
       {/* Main Categorized Price List */}
@@ -525,13 +455,16 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                               {prod.content || '1 Box'}
                             </div>
 
-                            {/* Rates Breakdown (MRP hidden — only discount % and final price shown) */}
-                            <div className="flex items-baseline gap-2 mt-1">
+                            {/* Rates Breakdown */}
+                            <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                              <span className="text-[10px] font-bold text-gray-500 line-through">
+                                MRP ₹{prod.mrp.toLocaleString('en-IN')}
+                              </span>
                               <span className="text-[10px] font-bold text-emerald-700">
                                 {prod.discount_percentage}% OFF
                               </span>
                               <span className="text-sm font-black text-red-700">
-                                ₹{prod.selling_price}
+                                ₹{prod.selling_price.toLocaleString('en-IN')}
                               </span>
                             </div>
                           </div>
@@ -605,6 +538,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                         <th className="py-2.5 px-3 text-center w-14">Image</th>
                         <th className="py-2.5 px-4 min-w-[200px]">Product Name & Code</th>
                         <th className="py-2.5 px-3 text-center min-w-[90px]">Content</th>
+                        <th className="py-2.5 px-3 text-right min-w-[90px]">MRP (₹)</th>
                         <th className="py-2.5 px-3 text-right min-w-[80px]">Discount</th>
                         <th className="py-2.5 px-3 text-right min-w-[90px]">Price (₹)</th>
                         <th className="py-2.5 px-4 text-center min-w-[130px]">Quantity</th>
@@ -652,14 +586,21 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                               {prod.content || '1 Box'}
                             </td>
 
-                            {/* 5. Discount (MRP column removed) */}
+                            {/* 5. MRP */}
+                            <td className="py-2.5 px-3 text-right">
+                              <span className="text-gray-500 line-through font-semibold text-xs">
+                                ₹{prod.mrp.toLocaleString('en-IN')}
+                              </span>
+                            </td>
+
+                            {/* 6. Discount */}
                             <td className="py-2.5 px-3 text-right">
                               <span className="text-emerald-700 font-bold text-xs">
                                 {prod.discount_percentage}%
                               </span>
                             </td>
 
-                            {/* 6. Price (Selling Price) */}
+                            {/* 7. Price (Selling Price) */}
                             <td className="py-2.5 px-3 text-right">
                               <span className="font-extrabold text-red-700 text-xs sm:text-sm font-['Outfit',sans-serif]">
                                 ₹{prod.selling_price.toFixed(2)}
@@ -729,7 +670,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
         )}
       </div>
 
-      {/* FLOATING BOTTOM BAR - ONLY SHOWN WHEN ACTIVELY SCROLLING/VIEWING PRODUCT LIST */}
+      {/* FLOATING BOTTOM BAR - also available on phone view as requested. */}
       <div
         className={`fixed bottom-0 inset-x-0 z-40 bg-slate-900 text-white p-3 border-t-2 border-amber-400 shadow-2xl backdrop-blur-lg transition-all duration-300 transform ${
           isInView
@@ -737,7 +678,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
             : 'translate-y-full opacity-0 pointer-events-none'
         }`}
       >
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 sm:gap-3">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-3">
           {/* Rate and Items info */}
           <div className="flex items-center justify-between w-full md:w-auto gap-4 px-0.5">
             <div>
@@ -761,11 +702,11 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
           </div>
 
           {/* 4 Action Buttons - wrap into a full-width grid on mobile so nothing gets clipped, single row on larger screens */}
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full md:w-auto md:flex md:items-center">
+          <div className="grid grid-cols-4 gap-1 w-full sm:w-auto sm:flex sm:items-center">
             {/* 1. Download PDF */}
             <button
               type="button"
-              onClick={handleDownloadEstimate}
+              onClick={() => requestDownload('estimate')}
               disabled={cart.length === 0}
               className="bg-amber-400 hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed text-red-950 px-1.5 sm:px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer min-w-0"
               title="Download Order Estimate PDF"
@@ -777,7 +718,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
             {/* 2. Full Catalog */}
             <button
               type="button"
-              onClick={handleDownloadPriceList}
+              onClick={() => requestDownload('catalog')}
               className="bg-slate-800 hover:bg-slate-700 text-white px-1.5 sm:px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 border border-slate-700 transition-colors cursor-pointer min-w-0"
               title="Download Full Catalog PDF"
             >
@@ -809,6 +750,14 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
           </div>
         </div>
       </div>
+
+      <DownloadDetailsModal
+        isOpen={downloadType !== null}
+        title={downloadType === 'estimate' ? 'Download Order Estimate' : 'Download Price List / Catalog'}
+        description="Enter your name and mobile number before downloading."
+        onClose={() => setDownloadType(null)}
+        onSubmit={completeDownload}
+      />
 
       {/* Image Preview Modal */}
       {previewImage && (

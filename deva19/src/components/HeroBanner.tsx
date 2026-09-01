@@ -54,7 +54,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const activeTheme = THEMES[currentThemeIndex];
 
   const handleWhatsAppOrder = () => {
-    const phone = settings?.owner_whatsapp || '918870929100';
+    const phone = settings?.owner_whatsapp || '919894777176';
     window.open(
       `https://wa.me/${phone}?text=வணக்கம்,%20DJ%20DEVARAJ%20CRACKERS%20(தேவராஜ்%20பட்டாசு%20கடை)%20விலைப்%20பட்டியல்%20மற்றும்%20ஆர்டர்%20செய்ய%20விரும்புகிறேன்.`,
       '_blank'

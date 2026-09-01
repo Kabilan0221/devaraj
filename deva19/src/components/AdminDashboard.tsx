@@ -102,6 +102,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     | 'banners'
     | 'store_settings'
     | 'customers'
+    | 'download_leads'
     | 'users'
     | 'security'
     | 'whatsapp'
@@ -126,7 +127,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   }, [settings]);
 
-  // Store Settings (Owner editable — Minimum Order Amount, Free Delivery Threshold)
+  // Store Settings (Owner editable — Minimum Order Amount & Free Delivery Threshold)
   const [minOrderValueInput, setMinOrderValueInput] = useState<string>(
     String(settings?.min_order_value ?? 500)
   );
@@ -237,6 +238,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [stockLogs, setStockLogs] = useState<StockTransaction[]>([]);
   const [userList, setUserList] = useState<UserSummary[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [downloadLeads, setDownloadLeads] = useState<Customer[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [whatsappLogs, setWhatsappLogs] = useState<WhatsAppLog[]>([]);
 
@@ -366,6 +368,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } else if (activeTab === 'customers') {
         const data = await apiRequest<any>('/api/customers');
         setCustomers(data || []);
+      } else if (activeTab === 'download_leads') {
+        const data = await apiRequest<any>('/api/customers/download-leads');
+        setDownloadLeads(data || []);
       } else if (activeTab === 'users') {
         const users = await apiRequest<any>('/api/users');
         setUserList(users || []);
@@ -1382,6 +1387,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <UserCheck className="w-3.5 h-3.5" />
                 <span>Customers</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab('download_leads')}
+                className={`px-3 py-1.5 rounded-lg whitespace-nowrap font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'download_leads' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-800 text-amber-300'
+                }`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Leads</span>
+              </button>
             </>
           )}
         </div>
@@ -1531,6 +1546,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <UserCheck className="w-4 h-4" />
                   <span>Customer Database</span>
+                </button>
+
+
+                <button
+                  onClick={() => setActiveTab('download_leads')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
+                    activeTab === 'download_leads' ? 'bg-amber-600 text-white font-bold' : 'text-amber-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Download className="w-4 h-4" />
+                  <span>PDF / Catalog Downloads</span>
                 </button>
 
                 <button
@@ -2884,7 +2910,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 Customer Records & Purchase History (வாடிக்கையாளர்கள்)
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Directory of customer mobile numbers, total purchases, and last order dates.
+                Directory of customer mobile numbers, purchase history, and price-list/catalog download leads.
               </p>
             </div>
 
@@ -2898,7 +2924,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <th className="p-3">Address</th>
                       <th className="p-3 text-center">Orders Count</th>
                       <th className="p-3 text-right">Total Purchase Value</th>
-                      <th className="p-3">Last Order Date</th>
+                      <th className="p-3">Last Activity</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -2919,8 +2945,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             ₹{c.total_purchase.toLocaleString('en-IN')}
                           </td>
                           <td className="p-3 text-gray-400">
-                            {new Date(c.last_order_date).toLocaleDateString('en-IN')}
+                            {c.last_order_date ? new Date(c.last_order_date).toLocaleDateString('en-IN') : c.last_download_at ? new Date(c.last_download_at).toLocaleDateString('en-IN') : '—'}
                           </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 8. PDF / CATALOG DOWNLOAD LEADS */}
+        {activeTab === 'download_leads' && (
+          <div className="space-y-4">
+            <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-xs">
+              <h2 className="text-xl font-extrabold text-gray-900 font-['Outfit',sans-serif]">
+                PDF / Catalog Download Leads
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Name and mobile numbers collected separately when customers download the PDF or catalog.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-amber-50 text-gray-700 font-bold border-b border-amber-200">
+                    <tr>
+                      <th className="p-3">Customer Name</th>
+                      <th className="p-3">Mobile Number</th>
+                      <th className="p-3">Download Type</th>
+                      <th className="p-3">Last Download</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {downloadLeads.length === 0 ? (
+                      <tr><td colSpan={4} className="p-8 text-center text-gray-400">No PDF / Catalog download leads recorded yet.</td></tr>
+                    ) : (
+                      downloadLeads.map((c) => (
+                        <tr key={c.id} className="hover:bg-gray-50">
+                          <td className="p-3 font-bold text-gray-900">{c.name}</td>
+                          <td className="p-3 font-mono text-gray-600">{c.mobile}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-1 rounded-lg bg-amber-100 text-amber-800 font-bold">PDF / Catalog</span>
+                          </td>
+                          <td className="p-3 text-gray-500">{c.last_download_at ? new Date(c.last_download_at).toLocaleString('en-IN') : '—'}</td>
                         </tr>
                       ))
                     )}

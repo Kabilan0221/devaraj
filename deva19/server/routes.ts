@@ -1019,12 +1019,11 @@ apiRouter.post('/orders', asyncHandler(async (req, res) => {
   const customer_name = (req.body.customer_name || req.body.name || '').trim();
   const customer_mobile = (req.body.customer_mobile || req.body.mobile || '').replace(/\D/g, '');
   const customer_email = (req.body.customer_email || req.body.email || '').trim();
-  const district = (req.body.district || req.body.city || 'Kanchipuram').trim();
-  const city = (req.body.city || district).trim();
+  const city = (req.body.city || 'Kanchipuram').trim();
   const state = (req.body.state || 'Tamil Nadu').trim();
   const area = (req.body.area || '').trim();
   const pincode = (req.body.pincode || '').trim();
-  const address = (req.body.address || req.body.delivery_address || `${area ? area + ', ' : ''}${district}, ${state}`).trim();
+  const address = (req.body.address || req.body.delivery_address || `${area ? area + ', ' : ''}${city}, ${state}`).trim();
   const notes = (req.body.notes || '').trim();
   const payment_mode = req.body.payment_mode || 'CASH';
   const transaction_ref = req.body.transaction_ref || req.body.payment_reference || '';
@@ -1109,7 +1108,7 @@ apiRouter.post('/orders', asyncHandler(async (req, res) => {
 
   // 4. Find or Create Customer
   let customer = db.customers.find((c) => c.mobile.replace(/\D/g, '') === customer_mobile.replace(/\D/g, ''));
-  const effectiveCity = district || city || 'Kanchipuram';
+  const effectiveCity = city || 'Kanchipuram';
   const effectiveState = state || 'Tamil Nadu';
   const fullAddress = `${address.trim()}${area ? ', ' + area.trim() : ''}, ${effectiveCity}, ${effectiveState}${pincode ? ' - ' + pincode.trim() : ''}`;
 
@@ -1351,9 +1350,14 @@ apiRouter.post('/billing', authMiddleware, asyncHandler(async (req, res) => {
       };
       db.customers.push(customer);
     } else {
+      // Manual/POS bills with a real mobile number are part of the same
+      // customer history used by the public Track My Bill screen.
       customer.total_orders += 1;
       customer.total_purchase += grandTotal;
       customer.last_order_date = now;
+      customer.updated_at = now;
+      customer.lead_source = 'ORDER';
+      if (custName && custName !== 'Counter Walk-in Customer') customer.name = custName;
       customerId = customer.id;
     }
   }
@@ -1527,7 +1531,7 @@ apiRouter.post('/invoices/:id/resend-whatsapp', authMiddleware, asyncHandler(asy
 
   const result = await sendWhatsAppInvoiceNotification({
     recipientType: 'OWNER',
-    recipientPhone: db.settings.owner_whatsapp || '919842100000',
+    recipientPhone: db.settings.owner_whatsapp || '919894777176',
     invoiceNumber: invoice.invoice_number,
     invoiceId: invoice.id,
     customerName: invoice.customer_name,
@@ -2033,6 +2037,78 @@ apiRouter.get('/customers/lookup', (req, res) => {
   }
 
   return res.json({ found: false });
+});
+
+// Quick customer save used by the billing counter when the cashier presses Enter
+// in the customer name box. This keeps the customer profile available for future
+// mobile-number lookup even before the next bill is completed.
+apiRouter.post('/customers/save', (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  const mobile = String(req.body?.mobile || '').replace(/\D/g, '');
+  if (!name) return res.status(400).json({ error: 'Customer name is required' });
+  if (mobile.length !== 10) return res.status(400).json({ error: 'Valid 10-digit mobile number is required' });
+
+  const db = dbService.getData();
+  const now = new Date().toISOString();
+  let customer = db.customers.find((c) => c.mobile.replace(/\D/g, '').slice(-10) === mobile);
+
+  if (!customer) {
+    const id = db.customers.length > 0 ? Math.max(...db.customers.map((c) => c.id)) + 1 : 1;
+    customer = {
+      id, name, mobile, email: '', address: '', area: '', city: '', pincode: '',
+      total_orders: 0, total_purchase: 0, created_at: now, updated_at: now,
+    };
+    db.customers.push(customer);
+  } else {
+    customer.name = name;
+    customer.updated_at = now;
+  }
+  dbService.saveSync();
+  res.json({ success: true, customer });
+});
+
+// Public customer registration used before price-list/catalog downloads.
+// This lets the Admin Panel recognize customers who download without placing an order.
+apiRouter.post('/customers/register-download', (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  const mobile = String(req.body?.mobile || '').replace(/\D/g, '');
+
+  if (!name) return res.status(400).json({ error: 'Customer name is required' });
+  if (mobile.length !== 10) return res.status(400).json({ error: 'Valid 10-digit mobile number is required' });
+
+  const db = dbService.getData();
+  const now = new Date().toISOString();
+  let customer = db.customers.find((c) => c.mobile.replace(/\D/g, '') === mobile);
+
+  if (!customer) {
+    const id = db.customers.length > 0 ? Math.max(...db.customers.map((c) => c.id)) + 1 : 1;
+    customer = {
+      id,
+      name,
+      mobile,
+      email: '',
+      address: '',
+      area: '',
+      city: '',
+      pincode: '',
+      total_orders: 0,
+      total_purchase: 0,
+      created_at: now,
+      updated_at: now,
+      lead_source: 'PRICE_LIST_DOWNLOAD',
+      last_download_at: now,
+    };
+    db.customers.push(customer);
+  } else {
+    // Keep the latest customer-entered name, but do not alter order totals.
+    if (name && customer.name !== name) customer.name = name;
+    customer.updated_at = now;
+    customer.last_download_at = now;
+    customer.lead_source = customer.lead_source || 'PRICE_LIST_DOWNLOAD';
+  }
+
+  dbService.saveSync();
+  res.json({ success: true, customer });
 });
 
 apiRouter.get('/customers', authMiddleware, (req, res) => {

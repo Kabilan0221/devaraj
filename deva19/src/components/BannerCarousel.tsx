@@ -83,7 +83,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative h-64 sm:h-80 md:h-96 w-full rounded-3xl overflow-hidden shadow-2xl border border-red-500/30 bg-gray-950">
+      <div className="relative h-[420px] xs:h-[380px] sm:h-80 md:h-96 w-full rounded-3xl overflow-hidden shadow-2xl border border-red-500/30 bg-gray-950">
         {/* Slides */}
         {activeBanners.map((banner, index) => {
           const isActive = index === currentIndex;
@@ -109,7 +109,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/25" />
 
               {/* Slide Content */}
-              <div className="absolute inset-0 flex flex-col justify-end sm:justify-center p-6 sm:p-10 md:p-14 max-w-3xl text-white">
+              <div className="absolute inset-0 flex flex-col justify-end sm:justify-center p-4 sm:p-10 md:p-14 max-w-3xl text-white">
                 {banner.badge && (
                   <div className="inline-flex items-center gap-1.5 bg-red-600/90 text-amber-300 font-extrabold text-xs uppercase px-3 py-1 rounded-full w-fit mb-2 sm:mb-3 shadow-md border border-red-400/40">
                     <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -117,12 +117,12 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   </div>
                 )}
 
-                <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight mb-2 drop-shadow-md text-amber-50">
+                <h2 className="text-lg xs:text-xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight mb-2 drop-shadow-md text-amber-50">
                   {title}
                 </h2>
 
                 {subtitle && (
-                  <p className="text-xs sm:text-base text-gray-200 line-clamp-2 sm:line-clamp-3 mb-4 sm:mb-6 leading-relaxed max-w-2xl drop-shadow">
+                  <p className="text-[11px] xs:text-xs sm:text-base text-gray-200 line-clamp-3 sm:line-clamp-3 mb-3 sm:mb-6 leading-relaxed max-w-2xl drop-shadow">
                     {subtitle}
                   </p>
                 )}
@@ -130,7 +130,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                 <div>
                   <button
                     onClick={onExploreProducts}
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black px-5 py-2.5 sm:px-6 sm:py-3 rounded-2xl text-xs sm:text-sm shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black px-3.5 py-2.5 sm:px-6 sm:py-3 rounded-2xl text-[11px] sm:text-sm shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
                   >
                     <Flame className="w-4 h-4 text-amber-300 fill-amber-300" />
                     <span>

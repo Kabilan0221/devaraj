@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CartItem, Invoice, PaymentMode, StoreSettings } from '../types';
 import { apiRequest } from '../utils/api';
 import { Language, t } from '../utils/translations';
@@ -25,46 +25,64 @@ interface CheckoutModalProps {
   onOrderSuccess: (order: any, invoice: Invoice, whatsappMsg: string, whatsappStatus?: string) => void;
 }
 
-const TN_DISTRICTS = [
-  'Kanchipuram',
-  'Chennai',
-  'Chengalpattu',
-  'Tiruvallur',
-  'Vellore',
-  'Ranipet',
-  'Tirupattur',
-  'Tiruvannamalai',
-  'Villupuram',
-  'Cuddalore',
-  'Salem',
-  'Namakkal',
-  'Dharmapuri',
-  'Krishnagiri',
-  'Coimbatore',
-  'Tiruppur',
-  'Erode',
-  'Nilgiris',
-  'Tiruchirappalli',
-  'Karur',
-  'Perambalur',
-  'Ariyalur',
-  'Thanjavur',
-  'Tiruvarur',
-  'Nagapattinam',
-  'Mayiladuthurai',
-  'Pudukkottai',
-  'Madurai',
-  'Theni',
-  'Dindigul',
-  'Ramanathapuram',
-  'Virudhunagar',
-  'Sivagangai',
-  'Tirunelveli',
-  'Tenkasi',
-  'Thoothukudi',
-  'Kanniyakumari',
-  'Other District',
-];
+const STATE_CITIES: Record<string, string[]> = {
+  'Tamil Nadu': [
+    'Achampudur', 'Acharapakkam', 'Alandur', 'Alanganallur', 'Alangayam', 'Alangudi', 'Alangulam',
+    'Alathur', 'Alwarkurichi', 'Alwarthirunagari', 'Ambasamudram', 'Ambattur', 'Ambur', 'Anaimalai',
+    'Andimadam', 'Andipatti', 'Annur', 'Arakkonam', 'Aralvaimozhi', 'Arani', 'Aranthangi',
+    'Aravakurichi', 'Arcot', 'Ariyalur', 'Arumbavur', 'Aruppukkottai', 'Attur', 'Authoor',
+    'Avadi', 'Avinashi', 'Avudaiyarkoil', 'Ayikudi', 'B.Mallapuram', 'Bargur', 'Batlagundu',
+    'Bhavani', 'Bhuvanagiri', 'Bodinayakanur', 'Boothapandi', 'Chengalpattu', 'Chengam', 'Chennai',
+    'Chennimalai', 'Cheranmahadevi', 'Chettinad', 'Cheyyar', 'Chidambaram', 'Chinnalapatti', 'Chinnamanur',
+    'Chinnasalem', 'Chitlapakkam', 'Chromepet', 'Coimbatore', 'Colachel', 'Coonoor', 'Cuddalore',
+    'Cumbum', 'Denkanikottai', 'Devakottai', 'Dharapuram', 'Dharmapuri', 'Dindigul', 'Edappadi',
+    'Eral', 'Erode', 'Ettayapuram', 'Gandarvakottai', 'Gangavalli', 'Gingee', 'Gobichettipalayam',
+    'Gudalur', 'Gudiyatham', 'Gummidipoondi', 'Harur', 'Hosur', 'Ilayangudi', 'Iluppur',
+    'Jayankondam', 'Kadayanallur', 'Kalakkad', 'Kalasapakkam', 'Kalayarkoil', 'Kallakurichi', 'Kallupatti',
+    'Kanadukathan', 'Kanchipuram', 'Kandamangalam', 'Kangeyam', 'Kanniyakumari', 'Kanyakumari', 'Karaikudi',
+    'Karamadai', 'Karambakudi', 'Kariapatti', 'Karimangalam', 'Karumathampatti', 'Karungal', 'Karur',
+    'Katpadi', 'Kattumannarkoil', 'Kaveripakkam', 'Kaveripattinam', 'Kayalpattinam', 'Keelapavoor', 'Keeranur',
+    'Kelamangalam', 'Ketti', 'Killai', 'Kilpennathur', 'Kilvelur', 'Kinathukadavu', 'Kodaikanal',
+    'Kodumudi', 'Komarapalayam', 'Kothamangalam', 'Kottaiyur', 'Kovilpatti', 'Krishnagiri', 'Krishnarayapuram',
+    'Kulasekaram', 'Kulathur', 'Kulithalai', 'Kumarapalayam', 'Kumbakonam', 'Kundrathur', 'Kunnam',
+    'Kurinjipadi', 'Kuthalam', 'Kuzhithurai', 'Labbaikudikadu', 'Lalgudi', 'Madukkarai', 'Madurai',
+    'Madurantakam', 'Manali', 'Manali New Town', 'Manamadurai', 'Manamelkudi', 'Mangadu', 'Manmangalam',
+    'Mannargudi', 'Maraimalai Nagar', 'Marakkanam', 'Marthandam', 'Mayiladuthurai', 'Melagaram', 'Melapalayam',
+    'Melur', 'Melvisharam', 'Mettupalayam', 'Mettur', 'Modakurichi', 'Mohanur', 'Moolakaraipatti',
+    'Mudhalur', 'Mudukulathur', 'Mulanur', 'Musiri', 'Mylapore', 'Nagapattinam', 'Nagercoil',
+    'Nallampalli', 'Namakkal', 'Nambiyur', 'Nanguneri', 'Narasingapuram', 'Natham', 'Natrampalli',
+    'Nattarasankottai', 'Neyveli', 'Nilakkottai', 'Oddanchatram', 'Omalur', 'Ooty', 'Orathanadu',
+    'Padmanabhapuram', 'Palacode', 'Palani', 'Palayamkottai', 'Palladam', 'Pallapatti', 'Pallavaram',
+    'Pammal', 'Panagudi', 'Panruti', 'Pappireddipatti', 'Paramakudi', 'Paramathi', 'Parangipettai',
+    'Pattukkottai', 'Pazhavoor', 'Pennadam', 'Pennagaram', 'Peraiyur', 'Perambalur', 'Peravurani',
+    'Periyakulam', 'Pernambut', 'Perundurai', 'Perungalur', 'Perungudi', 'Pollachi', 'Polur',
+    'Ponnamaravathi', 'Ponneri', 'Poolambadi', 'Poonamallee', 'Pudukkottai', 'Pudukottai', 'Pugalur',
+    'Puliangudi', 'Puliyankudi', 'Radhapuram', 'Rajakkamangalam', 'Rajapalayam', 'Ramanathapuram', 'Rameswaram',
+    'Ranipet', 'Rasipuram', 'Red Hills', 'Reddiyarpatti', 'Salem', 'Samayanallur', 'Sankagiri',
+    'Sankarankovil', 'Sankarapuram', 'Sankari', 'Sathyamangalam', 'Sattur', 'Sendamangalam', 'Sendurai',
+    'Sengottai', 'Sethiathoppu', 'Shencottai', 'Shenkottai', 'Sholavandan', 'Sholinghur', 'Singampunari',
+    'Sirkali', 'Sivaganga', 'Sivakasi', 'Srimushnam', 'Sriperumbudur', 'Srivaikuntam', 'Srivilliputhur',
+    'Suchindram', 'Sulur', 'Surandai', 'Tambaram', 'Tenkasi', 'Thammampatti', 'Thanjavur',
+    'Tharamangalam', 'Tharangambadi', 'Theni', 'Thenkasi', 'Thirumangalam', 'Thirumayam', 'Thiruneermalai',
+    'Thiruthuraipoondi', 'Thiruvaiyaru', 'Thiruvallur', 'Thiruvannamalai', 'Thiruvarur', 'Thiruvattar', 'Thiruvithancode',
+    'Thiruvonam', 'Thiruvottiyur', 'Thoothukudi', 'Thuckalay', 'Thuraiyur', 'Tindivanam', 'Tiruchendur',
+    'Tiruchengode', 'Tiruchirappalli', 'Tiruchuli', 'Tirukalukundram', 'Tirumangalam', 'Tirunelveli', 'Tirupathur',
+    'Tirupattur', 'Tiruppur', 'Tiruppuvanam', 'Tiruttani', 'Tiruvallur', 'Tiruvannamalai', 'Tiruvottiyur',
+    'Trichy', 'Udayarpalayam', 'Udumalaipettai', 'Ulundurpet', 'Usilampatti', 'Uthamapalayam', 'Uthangarai',
+    'Uthiramerur', 'Uthukottai', 'Vadakarai', 'Vadipatti', 'Valangaiman', 'Valliyur', 'Valparai',
+    'Vandavasi', 'Vaniyambadi', 'Vanur', 'Varadarajanpettai', 'Vasudevanallur', 'Vazhapadi', 'Vedaranyam',
+    'Vedasandur', 'Vellakoil', 'Velliyanai', 'Vellore', 'Velur', 'Vembakottai', 'Veppampattu',
+    'Veppankulam', 'Veppanthattai', 'Veppur', 'Vikravandi', 'Vilathikulam', 'Villupuram', 'Viralimalai',
+    'Virudhachalam', 'Virudhunagar', 'Walajapet', 'Watrap', 'Yercaud', 'Zamin Uthukuli', 'Other City',
+  ],
+  Puducherry: ['Puducherry', 'Karaikal', 'Mahe', 'Yanam'],
+  'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada', 'Tirupati', 'Guntur', 'Nellore', 'Kurnool', 'Rajahmundry', 'Kadapa', 'Anantapur', 'Eluru', 'Ongole', 'Srikakulam', 'Other City'],
+  Karnataka: ['Bengaluru', 'Mysuru', 'Mangaluru', 'Hubballi', 'Belagavi', 'Tumakuru', 'Shivamogga', 'Ballari', 'Davangere', 'Kalaburagi', 'Udupi', 'Hassan', 'Other City'],
+  Kerala: ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Thrissur', 'Kollam', 'Alappuzha', 'Kannur', 'Palakkad', 'Kottayam', 'Malappuram', 'Other City'],
+  Telangana: ['Hyderabad', 'Warangal', 'Nizamabad', 'Karimnagar', 'Khammam', 'Ramagundam', 'Mahbubnagar', 'Adilabad', 'Siddipet', 'Other City'],
+  Maharashtra: ['Mumbai', 'Pune', 'Nagpur', 'Nashik', 'Thane', 'Kolhapur', 'Solapur', 'Aurangabad', 'Navi Mumbai', 'Amravati', 'Sangli', 'Other City'],
+  'Other State': [],
+};
 
 const INDIAN_STATES = [
   'Tamil Nadu',
@@ -91,8 +109,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [address, setAddress] = useState('');
   const [area, setArea] = useState('');
   const [state, setState] = useState('Tamil Nadu');
-  const [district, setDistrict] = useState('Kanchipuram');
-  const [customDistrict, setCustomDistrict] = useState('');
+  const [city, setCity] = useState('Kanchipuram');
+  const [customCity, setCustomCity] = useState('');
+  const [cityFocused, setCityFocused] = useState(false);
+  const cityInputRef = useRef<HTMLInputElement>(null);
   const [pincode, setPincode] = useState('631502');
   const [notes, setNotes] = useState('');
 
@@ -131,6 +151,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [mobile]);
 
+  React.useEffect(() => {
+    const cities = STATE_CITIES[state] || [];
+    setCity(cities[0] || '');
+    setCustomCity('');
+  }, [state]);
+
   if (!isOpen) return null;
 
   const totalMrp = items.reduce((sum, item) => sum + item.product.mrp * item.quantity, 0);
@@ -167,9 +193,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
-    const finalDistrict = district === 'Other District' ? customDistrict.trim() : district;
-    if (!finalDistrict) {
-      setError(language === 'ta' ? 'தயவுசெய்து மாவட்டத்தை தேர்வு செய்க.' : 'Please specify your district.');
+    const finalCity = city.trim() || customCity.trim();
+    if (!finalCity) {
+      setError(language === 'ta' ? 'தயவுசெய்து நகரத்தை தேர்வு செய்க.' : 'Please specify your city.');
       return;
     }
 
@@ -190,7 +216,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setLoading(true);
 
     try {
-      const cleanAddress = address.trim() || `${area.trim() ? area.trim() + ', ' : ''}${finalDistrict}, ${state}${pincode.trim() ? ' - ' + pincode.trim() : ''}`;
+      const cleanAddress = address.trim() || `${area.trim() ? area.trim() + ', ' : ''}${finalCity}, ${state}${pincode.trim() ? ' - ' + pincode.trim() : ''}`;
 
       const orderPayload = {
         customer_name: name.trim(),
@@ -199,9 +225,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         address: cleanAddress,
         delivery_address: cleanAddress,
         area: area.trim() || undefined,
-        city: finalDistrict,
+        city: finalCity,
         state: state,
-        district: finalDistrict,
         pincode: pincode.trim() || undefined,
         payment_mode: 'CASH' as PaymentMode,
         payment_reference: 'COD_ORDER',
@@ -386,37 +411,56 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  {t('selectDistrict', language)}
+                  {language === 'ta' ? 'நகரம்' : 'City'}
                 </label>
-                <select
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
-                >
-                  {TN_DISTRICTS.map((dist) => (
-                    <option key={dist} value={dist}>
-                      {dist}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    ref={cityInputRef}
+                    type="text"
+                    required
+                    value={city}
+                    onFocus={() => setCityFocused(true)}
+                    onChange={(e) => setCity(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setCityFocused(false);
+                      if (e.key === 'Enter') setCityFocused(false);
+                    }}
+                    placeholder={language === 'ta' ? 'நகரத்தை தேர்வு செய்யவும் / type செய்து தேடவும்' : 'Select or type city'}
+                    className="w-full px-3.5 py-2.5 pr-10 bg-gray-50 border border-gray-300 rounded-xl text-sm font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-600"
+                  />
+                  <button type="button" aria-label="Show all cities" onClick={() => { setCityFocused(true); cityInputRef.current?.focus(); }} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-red-700 cursor-pointer">
+                    <span className={`inline-block transition-transform ${cityFocused ? 'rotate-180' : ''}`}>▾</span>
+                  </button>
+                  {cityFocused && (STATE_CITIES[state] || []).length > 0 && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setCityFocused(false)} />
+                      <div className="absolute left-0 right-0 top-full mt-1 z-40 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
+                        {(STATE_CITIES[state] || [])
+                          .filter((cityName) => !city.trim() || cityName.toLowerCase().includes(city.toLowerCase()))
+                          .map((cityName) => (
+                            <button
+                              type="button"
+                              key={cityName}
+                              onClick={() => { setCity(cityName); setCityFocused(false); }}
+                              className="block w-full text-left px-3.5 py-2.5 text-sm font-semibold text-gray-800 hover:bg-red-50 hover:text-red-700 border-b border-gray-50 last:border-0 cursor-pointer"
+                            >
+                              {cityName}
+                            </button>
+                          ))}
+                        {(STATE_CITIES[state] || []).filter((cityName) => !city.trim() || cityName.toLowerCase().includes(city.toLowerCase())).length === 0 && (
+                          <div className="px-3.5 py-3 text-xs text-gray-500">
+                            {language === 'ta' ? 'இந்த நகரம் பட்டியலில் இல்லை — type செய்து பயன்படுத்தலாம்.' : 'Not in the list — you can type this city directly.'}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <p className="text-[9px] text-gray-400 mt-1">
+                  {language === 'ta' ? 'Click செய்தால் அனைத்து cities-ம் வரும்; type செய்தால் தொடர்புடைய city names கீழே வரும்.' : 'Click to see all cities; type to see related city names below.'}
+                </p>
               </div>
             </div>
-
-            {district === 'Other District' && (
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  {language === 'ta' ? 'மாவட்ட பெயரை உள்ளிடவும் *' : 'Enter District / City Name *'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder=""
-                  value={customDistrict}
-                  onChange={(e) => setCustomDistrict(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-600"
-                />
-              </div>
-            )}
 
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">

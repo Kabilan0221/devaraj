@@ -185,7 +185,7 @@ export const Footer: React.FC<FooterProps> = ({ settings, onNavigateCategory, on
               <div className="flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                 <a
-                  href="https://wa.me/918870929100"
+                  href="https://wa.me/919894777176"
                   target="_blank"
                   rel="noreferrer"
                   className="text-emerald-400 hover:text-emerald-300 font-bold"

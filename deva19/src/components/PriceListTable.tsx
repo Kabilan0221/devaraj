@@ -325,29 +325,53 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                   <div className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1.5">
                     Category (வகை)
                   </div>
-                  <select
-                    value={selectedCatId}
-                    onChange={(e) => {
-                      setSelectedCatId(e.target.value === 'all' ? 'all' : Number(e.target.value));
-                      setShowSortMenu(false);
-                    }}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-600"
-                  >
-                    <option value="all">All Categories ({products.length})</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name} ({products.filter((p) => p.category_id === cat.id).length})
-                      </option>
-                    ))}
-                  </select>
-                  {selectedCatId !== 'all' && (
+                  <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
                     <button
                       type="button"
                       onClick={() => { setSelectedCatId('all'); setShowSortMenu(false); }}
-                      className="w-full text-center text-[11px] font-bold text-red-700 hover:underline pt-3"
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left text-xs font-bold transition-colors cursor-pointer ${
+                        selectedCatId === 'all'
+                          ? 'bg-red-700 text-white'
+                          : 'bg-gray-50 text-gray-800 hover:bg-red-50 hover:text-red-700'
+                      }`}
                     >
-                      Show All Categories
+                      <span>All Categories</span>
+                      <span className="text-[10px] opacity-80">{products.length}</span>
                     </button>
+
+                    {categories.map((cat) => {
+                      const categoryCount = products.filter((p) => p.category_id === cat.id).length;
+                      const isActive = selectedCatId === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCatId(cat.id);
+                            setShowSortMenu(false);
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left text-xs font-bold transition-colors cursor-pointer ${
+                            isActive
+                              ? 'bg-red-700 text-white'
+                              : 'bg-gray-50 text-gray-800 hover:bg-red-50 hover:text-red-700'
+                          }`}
+                        >
+                          <span className="truncate">{cat.name}</span>
+                          <span className="text-[10px] opacity-80 shrink-0">{categoryCount}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedCatId !== 'all' && (
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedCatId('all'); setShowSortMenu(false); }}
+                        className="w-full text-center text-[11px] font-bold text-red-700 hover:underline py-1"
+                      >
+                        Show All Categories
+                      </button>
+                    </div>
                   )}
                 </div>
               </>
